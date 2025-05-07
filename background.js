@@ -165,6 +165,13 @@ function injectEarlyOverlay(delay, isYouTubeShorts) {
   overlay.appendChild(message);
   document.body ? document.body.appendChild(overlay) : document.documentElement.appendChild(overlay);
   
+  // Immediately pause and mute all audio/video elements (including those in other tabs/players)
+  // This tackles the background audio problem
+  if (isYouTubeShorts) {
+    // First force pause all media on the page
+    pauseAllYouTubeMedia();
+  }
+  
   // Media handling - pause all videos/audio
   const mediaElements = [];
   
@@ -208,11 +215,77 @@ function injectEarlyOverlay(delay, isYouTubeShorts) {
     }
   }
   
+  // More aggressive function specifically for YouTube to handle background audio
+  function pauseAllYouTubeMedia() {
+    // Stop all hidden videos that might be playing in the background
+    document.querySelectorAll('video, audio, iframe').forEach(el => {
+      try {
+        // For video and audio elements
+        if (el.pause) {
+          el.pause();
+          el.muted = true; // Mute temporarily
+        }
+        
+        // For iframes - try to access contentWindow if possible
+        if (el.tagName === 'IFRAME') {
+          try {
+            // This will only work for same-origin iframes
+            const frameDoc = el.contentDocument || el.contentWindow.document;
+            frameDoc.querySelectorAll('video, audio').forEach(media => {
+              media.pause();
+              media.muted = true;
+            });
+          } catch (frameErr) {
+            // Cross-origin iframe - can't access directly
+          }
+        }
+      } catch (e) {
+        console.error('Error handling media element:', e);
+      }
+    });
+    
+    // Additional YouTube-specific handling
+    // Try to find and click any player's pause button
+    document.querySelectorAll('.ytp-play-button').forEach(button => {
+      try {
+        if (button.title && button.title.toLowerCase().includes('pause')) {
+          button.click();
+        }
+      } catch (e) {
+        console.error('Error interacting with YouTube player:', e);
+      }
+    });
+    
+    // Also try to find any mini player and close it
+    document.querySelectorAll('.ytp-miniplayer-close-button').forEach(button => {
+      try {
+        button.click();
+      } catch (e) {
+        console.error('Error closing miniplayer:', e);
+      }
+    });
+  }
+  
   // Start pausing media
   pauseAllMedia();
   
+  // For YouTube Shorts, we need a more aggressive approach to stop background audio
+  if (isYouTubeShorts) {
+    pauseAllYouTubeMedia();
+    
+    // Repeat the YouTube-specific pause after a short delay to catch any late-loading players
+    setTimeout(pauseAllYouTubeMedia, 200);
+  }
+  
   // Keep checking for new videos during the delay
-  const pauseInterval = setInterval(pauseAllMedia, 100);
+  const pauseInterval = setInterval(() => {
+    pauseAllMedia();
+    
+    // For YouTube Shorts, we need more aggressive handling
+    if (isYouTubeShorts && (Math.random() < 0.5)) { // Only run about half the time to reduce overhead
+      pauseAllYouTubeMedia();
+    }
+  }, 100);
   
   // Set a timeout to remove the overlay after the delay
   setTimeout(() => {
@@ -241,6 +314,26 @@ function injectEarlyOverlay(delay, isYouTubeShorts) {
     const existingOverlay = document.getElementById('slowscroll-overlay');
     if (existingOverlay) {
       existingOverlay.remove();
+    }
+    
+    // For YouTube Shorts, unmute all videos
+    if (isYouTubeShorts) {
+      document.querySelectorAll('video, audio').forEach(media => {
+        try {
+          if (media.muted) {
+            // Only unmute the active/visible players
+            const rect = media.getBoundingClientRect();
+            // Check if the video is visible in the viewport
+            if (rect.width > 0 && rect.height > 0 && 
+                rect.top >= 0 && rect.left >= 0 && 
+                rect.top <= window.innerHeight && rect.left <= window.innerWidth) {
+              media.muted = false;
+            }
+          }
+        } catch (e) {
+          console.error('Error unmuting media:', e);
+        }
+      });
     }
     
     // Special case for YouTube Shorts - we need to reset the player state
@@ -356,6 +449,11 @@ function handleSpaNavigation(delay, isYouTubeShorts) {
     document.head.appendChild(blockInteractions);
   }
   
+  // Immediately handle any possible background audio for YouTube Shorts
+  if (isYouTubeShorts) {
+    pauseAllYouTubeMedia();
+  }
+  
   // Add elements to DOM
   document.head.appendChild(style);
   overlay.appendChild(spinner);
@@ -405,11 +503,69 @@ function handleSpaNavigation(delay, isYouTubeShorts) {
     }
   }
   
+  // More aggressive function specifically for YouTube to handle background audio
+  function pauseAllYouTubeMedia() {
+    // Stop all hidden videos that might be playing in the background
+    document.querySelectorAll('video, audio, iframe').forEach(el => {
+      try {
+        // For video and audio elements
+        if (el.pause) {
+          el.pause();
+          el.muted = true; // Mute temporarily
+        }
+        
+        // For iframes - try to access contentWindow if possible
+        if (el.tagName === 'IFRAME') {
+          try {
+            // This will only work for same-origin iframes
+            const frameDoc = el.contentDocument || el.contentWindow.document;
+            frameDoc.querySelectorAll('video, audio').forEach(media => {
+              media.pause();
+              media.muted = true;
+            });
+          } catch (frameErr) {
+            // Cross-origin iframe - can't access directly
+          }
+        }
+      } catch (e) {
+        console.error('Error handling media element:', e);
+      }
+    });
+    
+    // Additional YouTube-specific handling
+    // Try to find and click any player's pause button
+    document.querySelectorAll('.ytp-play-button').forEach(button => {
+      try {
+        if (button.title && button.title.toLowerCase().includes('pause')) {
+          button.click();
+        }
+      } catch (e) {
+        console.error('Error interacting with YouTube player:', e);
+      }
+    });
+    
+    // Also try to find any mini player and close it
+    document.querySelectorAll('.ytp-miniplayer-close-button').forEach(button => {
+      try {
+        button.click();
+      } catch (e) {
+        console.error('Error closing miniplayer:', e);
+      }
+    });
+  }
+  
   // Start pausing media
   pauseAllMedia();
   
   // Keep checking for new videos
-  const pauseInterval = setInterval(pauseAllMedia, 100);
+  const pauseInterval = setInterval(() => {
+    pauseAllMedia();
+    
+    // For YouTube Shorts, we need more aggressive handling
+    if (isYouTubeShorts && (Math.random() < 0.5)) { // Only run about half the time to reduce overhead
+      pauseAllYouTubeMedia();
+    }
+  }, 100);
   
   // Remove overlay after delay
   setTimeout(() => {
@@ -434,6 +590,26 @@ function handleSpaNavigation(delay, isYouTubeShorts) {
     const existingOverlay = document.getElementById('slowscroll-spa-overlay');
     if (existingOverlay) {
       existingOverlay.remove();
+    }
+    
+    // For YouTube Shorts, unmute all videos
+    if (isYouTubeShorts) {
+      document.querySelectorAll('video, audio').forEach(media => {
+        try {
+          if (media.muted) {
+            // Only unmute the active/visible players
+            const rect = media.getBoundingClientRect();
+            // Check if the video is visible in the viewport
+            if (rect.width > 0 && rect.height > 0 && 
+                rect.top >= 0 && rect.left >= 0 && 
+                rect.top <= window.innerHeight && rect.left <= window.innerWidth) {
+              media.muted = false;
+            }
+          }
+        } catch (e) {
+          console.error('Error unmuting media:', e);
+        }
+      });
     }
     
     // Special case for YouTube Shorts - we need to make the player active again
