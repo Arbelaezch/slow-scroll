@@ -3,7 +3,7 @@
     "name": "SlowScroll",
     "version": "1.0",
     "description": "Intentionally slow down specified websites to reduce mindless browsing",
-    "permissions": ["storage", "webNavigation", "scripting"],
+    "permissions": ["storage", "webNavigation", "scripting", "tabs"],
     "host_permissions": ["*://*/*"],
     "background": {
       "service_worker": "background.js"
