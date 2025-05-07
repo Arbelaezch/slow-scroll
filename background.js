@@ -60,20 +60,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         const isYouTubeShorts = tab.url && tab.url.includes('youtube.com/shorts');
         
         // Inject appropriate script based on whether it's YouTube Shorts
-        if (isYouTubeShorts) {
-          chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            function: injectYouTubeShortsOverlay,
-            args: [delay]
-          });
-        } else {
-          // Use the standard overlay for all other sites
-          chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            function: injectEarlyOverlay,
-            args: [delay]
-          });
-        }
+        chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          function: injectEarlyOverlay,
+          args: [delay, isYouTubeShorts]
+        });
       });
     }
   }
@@ -93,158 +84,22 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
       // Check if this is YouTube Shorts
       const isYouTubeShorts = details.url && details.url.includes('youtube.com/shorts');
       
-      // Use appropriate function for YouTube Shorts vs other sites
-      if (isYouTubeShorts) {
-        chrome.scripting.executeScript({
-          target: { tabId: details.tabId },
-          function: handleYouTubeShortsNavigation,
-          args: [delay]
-        });
-      } else {
-        chrome.scripting.executeScript({
-          target: { tabId: details.tabId },
-          function: handleSpaNavigation,
-          args: [delay]
-        });
-      }
+      chrome.scripting.executeScript({
+        target: { tabId: details.tabId },
+        function: handleSpaNavigation,
+        args: [delay, isYouTubeShorts]
+      });
     });
   }
 });
 
-// Special handling for YouTube Shorts initial page load
-function injectYouTubeShortsOverlay(delay) {
-  // Only run once per navigation
-  if (window.__slowScrollActive) return;
-  window.__slowScrollActive = true;
-  
-  console.log(`SlowScroll: Delaying YouTube Shorts for ${delay}ms`);
-  
-  // Create simpler overlay that just delays without interfering with video playback
-  const overlay = document.createElement('div');
-  overlay.id = 'slowscroll-overlay';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100%';
-  overlay.style.height = '100%';
-  overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-  overlay.style.zIndex = '2147483647'; // Maximum z-index value
-  overlay.style.display = 'flex';
-  overlay.style.justifyContent = 'center';
-  overlay.style.alignItems = 'center';
-  overlay.style.flexDirection = 'column';
-  
-  const spinner = document.createElement('div');
-  spinner.style.border = '5px solid #f3f3f3';
-  spinner.style.borderTop = '5px solid #3498db';
-  spinner.style.borderRadius = '50%';
-  spinner.style.width = '50px';
-  spinner.style.height = '50px';
-  spinner.style.animation = 'slowscrollspin 2s linear infinite';
-  
-  const message = document.createElement('p');
-  message.textContent = 'Loading...';
-  message.style.marginTop = '20px';
-  message.style.fontFamily = 'Arial, sans-serif';
-  message.style.fontSize = '16px';
-  
-  // Add the style for the spinner animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slowscrollspin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  
-  // Add elements to the DOM
-  document.head.appendChild(style);
-  overlay.appendChild(spinner);
-  overlay.appendChild(message);
-  
-  // For YouTube Shorts, we actually want the page to load in the background
-  // so we don't hide the document, just add our overlay on top
-  document.body ? document.body.appendChild(overlay) : document.documentElement.appendChild(overlay);
-  
-  // Remove the overlay after the delay
-  setTimeout(() => {
-    const existingOverlay = document.getElementById('slowscroll-overlay');
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
-    window.__slowScrollActive = false;
-  }, delay);
-}
-
-// Special handling for YouTube Shorts SPA navigation
-function handleYouTubeShortsNavigation(delay) {
-  // Only run once per SPA navigation
-  if (window.__slowScrollSpaActive) return;
-  window.__slowScrollSpaActive = true;
-  
-  console.log(`SlowScroll: Delaying YouTube Shorts navigation for ${delay}ms`);
-  
-  // Create simpler overlay just for delay
-  const overlay = document.createElement('div');
-  overlay.id = 'slowscroll-spa-overlay';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100%';
-  overlay.style.height = '100%';
-  overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-  overlay.style.zIndex = '2147483647';
-  overlay.style.display = 'flex';
-  overlay.style.justifyContent = 'center';
-  overlay.style.alignItems = 'center';
-  overlay.style.flexDirection = 'column';
-  
-  const spinner = document.createElement('div');
-  spinner.style.border = '5px solid #f3f3f3';
-  spinner.style.borderTop = '5px solid #3498db';
-  spinner.style.borderRadius = '50%';
-  spinner.style.width = '50px';
-  spinner.style.height = '50px';
-  spinner.style.animation = 'slowscrollspaspin 2s linear infinite';
-  
-  const message = document.createElement('p');
-  message.textContent = 'Loading...';
-  message.style.marginTop = '20px';
-  message.style.fontFamily = 'Arial, sans-serif';
-  message.style.fontSize = '16px';
-  
-  // Add the style for the spinner animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slowscrollspaspin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  
-  // Add elements to DOM without hiding the page
-  document.head.appendChild(style);
-  overlay.appendChild(spinner);
-  overlay.appendChild(message);
-  document.body.appendChild(overlay);
-  
-  // Remove overlay after delay
-  setTimeout(() => {
-    const existingOverlay = document.getElementById('slowscroll-spa-overlay');
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
-    window.__slowScrollSpaActive = false;
-  }, delay);
-}
-
-// Standard overlay for all other sites
-function injectEarlyOverlay(delay) {
+// Handles the initial page load for all sites, with special handling for YouTube Shorts
+function injectEarlyOverlay(delay, isYouTubeShorts) {
   // Only run once per real navigation
   if (window.__slowScrollActive) return;
   window.__slowScrollActive = true;
   
-  console.log(`SlowScroll: Delaying page for ${delay}ms`);
+  console.log(`SlowScroll: Delaying page for ${delay}ms (YouTube Shorts: ${isYouTubeShorts})`);
   
   // Create our overlay immediately to block content
   const overlay = document.createElement('div');
@@ -284,8 +139,25 @@ function injectEarlyOverlay(delay) {
     }
   `;
   
-  // We need to add this to the document as early as possible
-  document.documentElement.style.display = 'none'; // Hide everything initially
+  // Different approach depending on if it's YouTube Shorts
+  if (!isYouTubeShorts) {
+    // Standard site - hide content completely
+    document.documentElement.style.display = 'none';
+  } else {
+    // For YouTube Shorts, we need a special approach to block element access
+    // Add a style to disable pointer events on everything except our overlay
+    const blockInteractions = document.createElement('style');
+    blockInteractions.id = 'slowscroll-block-interactions';
+    blockInteractions.textContent = `
+      body * {
+        pointer-events: none !important;
+      }
+      #slowscroll-overlay {
+        pointer-events: auto !important;
+      }
+    `;
+    document.head.appendChild(blockInteractions);
+  }
   
   // Add elements to the DOM
   document.head.appendChild(style);
@@ -293,88 +165,77 @@ function injectEarlyOverlay(delay) {
   overlay.appendChild(message);
   document.body ? document.body.appendChild(overlay) : document.documentElement.appendChild(overlay);
   
-  // Media handling - pause all media elements and store their state
-  let mediaElements = [];
+  // Media handling - pause all videos/audio
+  const mediaElements = [];
   
-  // Function to pause all media elements
+  // Function to pause all video and audio elements
   function pauseAllMedia() {
-    // Clear previous media elements data
-    mediaElements = [];
-    
-    // Handle videos
-    document.querySelectorAll('video').forEach(video => {
-      const wasPlaying = !video.paused;
-      if (wasPlaying) {
-        video.pause();
-      }
-      mediaElements.push({
-        element: video,
-        wasPlaying: wasPlaying
-      });
-    });
-    
-    // Handle audio
-    document.querySelectorAll('audio').forEach(audio => {
-      const wasPlaying = !audio.paused;
-      if (wasPlaying) {
-        audio.pause();
-      }
-      mediaElements.push({
-        element: audio,
-        wasPlaying: wasPlaying
-      });
-    });
-    
-    // Add YouTube iframes
-    document.querySelectorAll('iframe').forEach(iframe => {
-      if (iframe.src && iframe.src.includes('youtube.com')) {
-        try {
-          // This will only work if the iframe is from the same origin
-          // but we'll try anyway
-          mediaElements.push({
-            element: iframe,
-            wasPlaying: true // Assume playing to be safe
-          });
-        } catch (e) {
-          // Ignore cross-origin errors
+    document.querySelectorAll('video, audio').forEach(media => {
+      try {
+        if (!media.paused) {
+          // Check if we've already handled this media element
+          const existingIndex = mediaElements.findIndex(item => item.element === media);
+          if (existingIndex === -1) {
+            // New media element
+            mediaElements.push({
+              element: media,
+              wasMuted: media.muted,
+              wasPlaying: true,
+              currentTime: media.currentTime
+            });
+          }
+          
+          // Pause the media
+          media.pause();
         }
+      } catch (e) {
+        console.error('Error pausing media:', e);
       }
     });
+    
+    // For YouTube Shorts specifically - additional handling for their player
+    if (isYouTubeShorts) {
+      // Try to find and click any pause buttons
+      document.querySelectorAll('.ytp-play-button').forEach(button => {
+        try {
+          if (button.title && button.title.toLowerCase().includes('pause')) {
+            button.click();
+          }
+        } catch (e) {
+          console.error('Error clicking pause button:', e);
+        }
+      });
+    }
   }
   
-  // First pause attempt
+  // Start pausing media
   pauseAllMedia();
   
-  // Continue monitoring for new media elements during the delay
-  const mediaMonitor = setInterval(pauseAllMedia, 100);
+  // Keep checking for new videos during the delay
+  const pauseInterval = setInterval(pauseAllMedia, 100);
   
   // Set a timeout to remove the overlay after the delay
   setTimeout(() => {
     // Stop the media monitoring
-    clearInterval(mediaMonitor);
+    clearInterval(pauseInterval);
     
     // Show content again
-    document.documentElement.style.display = '';
-    
-    // Resume media that was playing before
-    mediaElements.forEach(item => {
-      if (item.wasPlaying) {
-        try {
-          const element = item.element;
-          // If it's a video or audio element
-          if (element.play && typeof element.play === 'function') {
-            const playPromise = element.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                console.error('Error resuming media playback:', error);
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error resuming media:', e);
-        }
+    if (!isYouTubeShorts) {
+      document.documentElement.style.display = '';
+    } else {
+      // For YouTube Shorts - remove our interaction blocker
+      const blockInteractions = document.getElementById('slowscroll-block-interactions');
+      if (blockInteractions) {
+        blockInteractions.remove();
       }
-    });
+      
+      // Special handling for YouTube Shorts - let's make the player visible
+      // and force a layout update
+      document.body.style.display = 'none';
+      setTimeout(() => {
+        document.body.style.display = '';
+      }, 50);
+    }
     
     // Remove the overlay
     const existingOverlay = document.getElementById('slowscroll-overlay');
@@ -382,17 +243,65 @@ function injectEarlyOverlay(delay) {
       existingOverlay.remove();
     }
     
+    // Special case for YouTube Shorts - we need to reset the player state
+    if (isYouTubeShorts) {
+      // After a short delay to let YouTube's player initialize
+      setTimeout(() => {
+        // Force a click on the video container to activate it
+        document.querySelectorAll('ytd-shorts, .html5-video-container, .html5-video-player, #shorts-container').forEach(container => {
+          try {
+            container.click();
+          } catch (e) {
+            console.error('Error clicking shorts container:', e);
+          }
+        });
+        
+        // Also try clicking play buttons
+        document.querySelectorAll('.ytp-play-button').forEach(button => {
+          try {
+            if (button.title && button.title.toLowerCase().includes('play')) {
+              button.click();
+            }
+          } catch (e) {
+            console.error('Error clicking play button:', e);
+          }
+        });
+        
+        // Force the player to show controls
+        document.querySelectorAll('video').forEach(video => {
+          try {
+            // Create and dispatch a synthetic mouse move event to make controls appear
+            ['mouseover', 'mousemove'].forEach(eventType => {
+              const event = new MouseEvent(eventType, {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+                clientX: video.getBoundingClientRect().width / 2,
+                clientY: video.getBoundingClientRect().height / 2
+              });
+              video.dispatchEvent(event);
+            });
+          } catch (e) {
+            console.error('Error dispatching mouse events:', e);
+          }
+        });
+      }, 300);
+    }
+    
     window.__slowScrollActive = false;
   }, delay);
 }
 
-// Handle SPA (Single Page Application) navigation for regular sites
-function handleSpaNavigation(delay) {
+// Handle SPA (Single Page Application) navigation
+function handleSpaNavigation(delay, isYouTubeShorts) {
   // For SPA navigation, we can't hide the whole page, so we create an overlay
   if (window.__slowScrollSpaActive) return;
   window.__slowScrollSpaActive = true;
   
-  console.log(`SlowScroll: Delaying SPA navigation for ${delay}ms`);
+  console.log(`SlowScroll: Delaying SPA navigation for ${delay}ms (YouTube Shorts: ${isYouTubeShorts})`);
+  
+  // Track the current URL to detect shorts navigation
+  const currentUrl = window.location.href;
   
   // Create overlay
   const overlay = document.createElement('div');
@@ -432,55 +341,20 @@ function handleSpaNavigation(delay) {
     }
   `;
   
-  // Media handling for SPA navigation
-  let mediaElements = [];
-  
-  // Function to pause all media elements
-  function pauseAllMedia() {
-    // Clear previous data
-    mediaElements = [];
-    
-    // Handle videos
-    document.querySelectorAll('video').forEach(video => {
-      const wasPlaying = !video.paused;
-      if (wasPlaying) {
-        video.pause();
+  // For YouTube Shorts, add interaction blocker
+  if (isYouTubeShorts) {
+    const blockInteractions = document.createElement('style');
+    blockInteractions.id = 'slowscroll-spa-block-interactions';
+    blockInteractions.textContent = `
+      body * {
+        pointer-events: none !important;
       }
-      mediaElements.push({
-        element: video,
-        wasPlaying: wasPlaying
-      });
-    });
-    
-    // Handle audio
-    document.querySelectorAll('audio').forEach(audio => {
-      const wasPlaying = !audio.paused;
-      if (wasPlaying) {
-        audio.pause();
+      #slowscroll-spa-overlay {
+        pointer-events: auto !important;
       }
-      mediaElements.push({
-        element: audio,
-        wasPlaying: wasPlaying
-      });
-    });
-    
-    // YouTube iframes
-    document.querySelectorAll('iframe').forEach(iframe => {
-      if (iframe.src && iframe.src.includes('youtube.com')) {
-        try {
-          mediaElements.push({
-            element: iframe,
-            wasPlaying: true // Assume playing
-          });
-        } catch (e) {
-          // Ignore cross-origin errors
-        }
-      }
-    });
+    `;
+    document.head.appendChild(blockInteractions);
   }
-  
-  // First pause attempt
-  pauseAllMedia();
   
   // Add elements to DOM
   document.head.appendChild(style);
@@ -488,37 +362,123 @@ function handleSpaNavigation(delay) {
   overlay.appendChild(message);
   document.body.appendChild(overlay);
   
-  // Continue monitoring for new media
-  const mediaMonitor = setInterval(pauseAllMedia, 100);
+  // Track media elements
+  const mediaElements = [];
+  
+  // Function to pause all media elements
+  function pauseAllMedia() {
+    document.querySelectorAll('video, audio').forEach(media => {
+      try {
+        if (!media.paused) {
+          // Check if we've already handled this media element
+          const existingIndex = mediaElements.findIndex(item => item.element === media);
+          if (existingIndex === -1) {
+            // New media element
+            mediaElements.push({
+              element: media,
+              wasMuted: media.muted,
+              wasPlaying: true,
+              currentTime: media.currentTime
+            });
+          }
+          
+          // Pause the media
+          media.pause();
+        }
+      } catch (e) {
+        console.error('Error pausing media:', e);
+      }
+    });
+    
+    // For YouTube Shorts specifically - try to use their player controls
+    if (isYouTubeShorts) {
+      // Try to find and click pause buttons
+      document.querySelectorAll('.ytp-play-button').forEach(button => {
+        try {
+          if (button.title && button.title.toLowerCase().includes('pause')) {
+            button.click();
+          }
+        } catch (e) {
+          console.error('Error clicking pause button:', e);
+        }
+      });
+    }
+  }
+  
+  // Start pausing media
+  pauseAllMedia();
+  
+  // Keep checking for new videos
+  const pauseInterval = setInterval(pauseAllMedia, 100);
   
   // Remove overlay after delay
   setTimeout(() => {
-    // Stop monitoring
-    clearInterval(mediaMonitor);
+    // Stop pausing interval
+    clearInterval(pauseInterval);
     
-    // Resume media that was playing
-    mediaElements.forEach(item => {
-      if (item.wasPlaying) {
-        try {
-          const element = item.element;
-          if (element.play && typeof element.play === 'function') {
-            const playPromise = element.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                console.error('Error resuming media playback:', error);
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error resuming media:', e);
-        }
+    // For YouTube Shorts - remove interaction blocker
+    if (isYouTubeShorts) {
+      const blockInteractions = document.getElementById('slowscroll-spa-block-interactions');
+      if (blockInteractions) {
+        blockInteractions.remove();
       }
-    });
+      
+      // Special handling for YouTube Shorts - force a layout update
+      document.body.style.display = 'none';
+      setTimeout(() => {
+        document.body.style.display = '';
+      }, 50);
+    }
     
     // Remove overlay
     const existingOverlay = document.getElementById('slowscroll-spa-overlay');
     if (existingOverlay) {
       existingOverlay.remove();
+    }
+    
+    // Special case for YouTube Shorts - we need to make the player active again
+    if (isYouTubeShorts) {
+      // After a short delay to let YouTube's player initialize fully
+      setTimeout(() => {
+        // Try to activate the player by clicking on container elements
+        document.querySelectorAll('ytd-shorts, .html5-video-container, .html5-video-player, #shorts-container').forEach(container => {
+          try {
+            container.click();
+          } catch (e) {
+            console.error('Error clicking shorts container:', e);
+          }
+        });
+        
+        // Try clicking play buttons
+        document.querySelectorAll('.ytp-play-button').forEach(button => {
+          try {
+            if (button.title && button.title.toLowerCase().includes('play')) {
+              button.click();
+            }
+          } catch (e) {
+            console.error('Error clicking play button:', e);
+          }
+        });
+        
+        // Force the player to show controls
+        document.querySelectorAll('video').forEach(video => {
+          try {
+            // Create and dispatch synthetic mouse events to make controls appear
+            ['mouseover', 'mousemove'].forEach(eventType => {
+              const event = new MouseEvent(eventType, {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+                clientX: video.getBoundingClientRect().width / 2,
+                clientY: video.getBoundingClientRect().height / 2
+              });
+              video.dispatchEvent(event);
+            });
+          } catch (e) {
+            console.error('Error dispatching mouse events:', e);
+          }
+        });
+      }, 300);
     }
     
     window.__slowScrollSpaActive = false;
