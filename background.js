@@ -56,13 +56,24 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       chrome.storage.local.get(['delay'], (result) => {
         const delay = result.delay || DEFAULT_DELAY;
         
-        // Inject a script that will prevent the page from rendering content
-        // until our delay completes
-        chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          function: injectEarlyOverlay,
-          args: [delay]
-        });
+        // Check if this is YouTube Shorts
+        const isYouTubeShorts = tab.url && tab.url.includes('youtube.com/shorts');
+        
+        // Inject appropriate script based on whether it's YouTube Shorts
+        if (isYouTubeShorts) {
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: injectYouTubeShortsOverlay,
+            args: [delay]
+          });
+        } else {
+          // Use the standard overlay for all other sites
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: injectEarlyOverlay,
+            args: [delay]
+          });
+        }
       });
     }
   }
@@ -79,16 +90,155 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
     chrome.storage.local.get(['delay'], (result) => {
       const delay = result.delay || DEFAULT_DELAY;
       
-      chrome.scripting.executeScript({
-        target: { tabId: details.tabId },
-        function: handleSpaNavigation,
-        args: [delay]
-      });
+      // Check if this is YouTube Shorts
+      const isYouTubeShorts = details.url && details.url.includes('youtube.com/shorts');
+      
+      // Use appropriate function for YouTube Shorts vs other sites
+      if (isYouTubeShorts) {
+        chrome.scripting.executeScript({
+          target: { tabId: details.tabId },
+          function: handleYouTubeShortsNavigation,
+          args: [delay]
+        });
+      } else {
+        chrome.scripting.executeScript({
+          target: { tabId: details.tabId },
+          function: handleSpaNavigation,
+          args: [delay]
+        });
+      }
     });
   }
 });
 
-// This function will be injected into the page at the start of loading
+// Special handling for YouTube Shorts initial page load
+function injectYouTubeShortsOverlay(delay) {
+  // Only run once per navigation
+  if (window.__slowScrollActive) return;
+  window.__slowScrollActive = true;
+  
+  console.log(`SlowScroll: Delaying YouTube Shorts for ${delay}ms`);
+  
+  // Create simpler overlay that just delays without interfering with video playback
+  const overlay = document.createElement('div');
+  overlay.id = 'slowscroll-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+  overlay.style.zIndex = '2147483647'; // Maximum z-index value
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.flexDirection = 'column';
+  
+  const spinner = document.createElement('div');
+  spinner.style.border = '5px solid #f3f3f3';
+  spinner.style.borderTop = '5px solid #3498db';
+  spinner.style.borderRadius = '50%';
+  spinner.style.width = '50px';
+  spinner.style.height = '50px';
+  spinner.style.animation = 'slowscrollspin 2s linear infinite';
+  
+  const message = document.createElement('p');
+  message.textContent = 'Loading...';
+  message.style.marginTop = '20px';
+  message.style.fontFamily = 'Arial, sans-serif';
+  message.style.fontSize = '16px';
+  
+  // Add the style for the spinner animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slowscrollspin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  
+  // Add elements to the DOM
+  document.head.appendChild(style);
+  overlay.appendChild(spinner);
+  overlay.appendChild(message);
+  
+  // For YouTube Shorts, we actually want the page to load in the background
+  // so we don't hide the document, just add our overlay on top
+  document.body ? document.body.appendChild(overlay) : document.documentElement.appendChild(overlay);
+  
+  // Remove the overlay after the delay
+  setTimeout(() => {
+    const existingOverlay = document.getElementById('slowscroll-overlay');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+    window.__slowScrollActive = false;
+  }, delay);
+}
+
+// Special handling for YouTube Shorts SPA navigation
+function handleYouTubeShortsNavigation(delay) {
+  // Only run once per SPA navigation
+  if (window.__slowScrollSpaActive) return;
+  window.__slowScrollSpaActive = true;
+  
+  console.log(`SlowScroll: Delaying YouTube Shorts navigation for ${delay}ms`);
+  
+  // Create simpler overlay just for delay
+  const overlay = document.createElement('div');
+  overlay.id = 'slowscroll-spa-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+  overlay.style.zIndex = '2147483647';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.flexDirection = 'column';
+  
+  const spinner = document.createElement('div');
+  spinner.style.border = '5px solid #f3f3f3';
+  spinner.style.borderTop = '5px solid #3498db';
+  spinner.style.borderRadius = '50%';
+  spinner.style.width = '50px';
+  spinner.style.height = '50px';
+  spinner.style.animation = 'slowscrollspaspin 2s linear infinite';
+  
+  const message = document.createElement('p');
+  message.textContent = 'Loading...';
+  message.style.marginTop = '20px';
+  message.style.fontFamily = 'Arial, sans-serif';
+  message.style.fontSize = '16px';
+  
+  // Add the style for the spinner animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slowscrollspaspin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  
+  // Add elements to DOM without hiding the page
+  document.head.appendChild(style);
+  overlay.appendChild(spinner);
+  overlay.appendChild(message);
+  document.body.appendChild(overlay);
+  
+  // Remove overlay after delay
+  setTimeout(() => {
+    const existingOverlay = document.getElementById('slowscroll-spa-overlay');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+    window.__slowScrollSpaActive = false;
+  }, delay);
+}
+
+// Standard overlay for all other sites
 function injectEarlyOverlay(delay) {
   // Only run once per real navigation
   if (window.__slowScrollActive) return;
@@ -236,7 +386,7 @@ function injectEarlyOverlay(delay) {
   }, delay);
 }
 
-// Handle SPA (Single Page Application) navigation
+// Handle SPA (Single Page Application) navigation for regular sites
 function handleSpaNavigation(delay) {
   // For SPA navigation, we can't hide the whole page, so we create an overlay
   if (window.__slowScrollSpaActive) return;
