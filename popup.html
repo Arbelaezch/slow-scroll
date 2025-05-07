@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SlowScroll Settings</title>
+  <style>
+    body {
+      width: 300px;
+      font-family: Arial, sans-serif;
+      padding: 10px;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    h2 {
+      font-size: 16px;
+      margin-top: 15px;
+      margin-bottom: 10px;
+    }
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    .delay-container {
+      margin-bottom: 15px;
+    }
+    .delay-container label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    #delayValue {
+      margin-left: 5px;
+    }
+    .site-list {
+      margin-bottom: 15px;
+    }
+    .site-input {
+      display: flex;
+      margin-top: 10px;
+    }
+    #newSite {
+      flex-grow: 1;
+      margin-right: 5px;
+      padding: 5px;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      text-align: center;
+      text-decoration: none;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #sitesList {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    .site-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+    .site-item:last-child {
+      border-bottom: none;
+    }
+    .remove-site {
+      background-color: #f44336;
+      padding: 2px 6px;
+      font-size: 12px;
+    }
+    .status {
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>SlowScroll Settings</h1>
+  
+  <div class="toggle-container">
+    <label class="toggle">
+      <input type="checkbox" id="enableToggle">
+      <span class="slider"></span>
+    </label>
+    <span id="statusText">Extension is enabled</span>
+  </div>
+  
+  <div class="delay-container">
+    <label>
+      Delay: <input type="range" min="1000" max="10000" step="500" value="5000" id="delaySlider">
+      <span id="delayValue">5</span> seconds
+    </label>
+  </div>
+  
+  <div class="site-list">
+    <h2>Slowed Websites</h2>
+    <div class="site-input">
+      <input type="text" id="newSite" placeholder="e.g., facebook.com">
+      <button id="addSite">Add</button>
+    </div>
+    <div id="sitesList"></div>
+  </div>
+  
+  <div class="status" id="currentSite"></div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
