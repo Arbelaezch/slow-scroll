@@ -297,53 +297,10 @@ function injectDelayOverlay(delay, isYouTubeShorts) {
     // Track the media elements we've already processed
     const processedMedia = new WeakSet();
 
-    // Function to close any miniplayers (YouTube specific)
-    function closeMiniPlayers() {
-        if (!isYouTubeShorts) return;
-
-        console.log('[SlowScroll-Page] Attempting to close any miniplayers');
-
-        // Try every selector that might match miniplayer close buttons
-        const selectors = [
-            '.ytp-miniplayer-close-button',
-            'button[aria-label="Exit miniplayer"]',
-            'button[title="Exit miniplayer"]',
-            '.ytp-miniplayer-button[aria-expanded="true"]'
-        ];
-
-        let foundButtons = 0;
-        selectors.forEach(selector => {
-            const buttons = document.querySelectorAll(selector);
-            foundButtons += buttons.length;
-
-            buttons.forEach(button => {
-                try {
-                    button.click();
-                    console.log(`[SlowScroll-Page] Clicked miniplayer close button: ${selector}`);
-                } catch (e) {
-                    console.error(`[SlowScroll-Page] Error closing miniplayer with selector ${selector}:`, e);
-                }
-            });
-        });
-
-        // Try to find and hide any miniplayer elements directly
-        const miniplayerElements = document.querySelectorAll('.ytp-miniplayer-ui, ytd-miniplayer, [id*="miniplayer"]');
-        console.log(`[SlowScroll-Page] Found ${miniplayerElements.length} miniplayer elements to hide`);
-
-        miniplayerElements.forEach(element => {
-            try {
-                element.style.display = 'none';
-                console.log('[SlowScroll-Page] Hid miniplayer element');
-            } catch (e) {
-                console.error('[SlowScroll-Page] Error hiding miniplayer element:', e);
-            }
-        });
-
-        console.log(`[SlowScroll-Page] Finished miniplayer check: found ${foundButtons} close buttons`);
-    }
-
     // Function to handle media elements
     function handleMedia() {
+        console.log('handleMedia()');
+
         const videos = document.querySelectorAll('video');
         const audios = document.querySelectorAll('audio');
 
@@ -415,8 +372,6 @@ function injectDelayOverlay(delay, isYouTubeShorts) {
                 }
             });
 
-            // Also try to close any miniplayers
-            closeMiniPlayers();
         }
     }
 
@@ -432,10 +387,6 @@ function injectDelayOverlay(delay, isYouTubeShorts) {
 
     // For YouTube Shorts, try to close miniplayers periodically
     let miniplayerInterval = null;
-    if (isYouTubeShorts) {
-        console.log('[SlowScroll-Page] Setting up miniplayer monitoring interval');
-        miniplayerInterval = setInterval(closeMiniPlayers, 500);
-    }
 
     // Set a timeout to remove the overlay after the delay
     console.log(`[SlowScroll-Page] Setting timeout to remove overlay after ${delay}ms`);
@@ -449,11 +400,6 @@ function injectDelayOverlay(delay, isYouTubeShorts) {
         if (miniplayerInterval) {
             clearInterval(miniplayerInterval);
             console.log('[SlowScroll-Page] Cleared miniplayer monitoring interval');
-        }
-
-        // One last check for miniplayers
-        if (isYouTubeShorts) {
-            closeMiniPlayers();
         }
 
         // Remove interaction blocker if it exists
@@ -544,89 +490,34 @@ function injectDelayOverlay(delay, isYouTubeShorts) {
             });
 
             // Also try clicking container elements
-            const containers = document.querySelectorAll('ytd-shorts, .html5-video-container, .html5-video-player, #shorts-container');
-            console.log(`[SlowScroll-Page] Found ${containers.length} container elements`);
+            // const containers = document.querySelectorAll('ytd-shorts, .html5-video-container, .html5-video-player, #shorts-container');
+            // console.log(`[SlowScroll-Page] Found ${containers.length} container elements`);
 
-            containers.forEach((container, index) => {
-                try {
-                    console.log(`[SlowScroll-Page] Clicking container ${index}`);
-                    container.click();
-                } catch (e) {
-                    console.error(`[SlowScroll-Page] Error clicking container ${index}:`, e);
-                }
-            });
+            // containers.forEach((container, index) => {
+            //     try {
+            //         console.log(`[SlowScroll-Page] Clicking container ${index}`);
+            //         container.click();
+            //     } catch (e) {
+            //         console.error(`[SlowScroll-Page] Error clicking container ${index}:`, e);
+            //     }
+            // });
 
-            // Click any play buttons
-            const playButtons = document.querySelectorAll('.ytp-play-button');
-            console.log(`[SlowScroll-Page] Found ${playButtons.length} play buttons`);
+            // // Click any play buttons
+            // const playButtons = document.querySelectorAll('');
+            // console.log(`[SlowScroll-Page] Found ${playButtons.length} play buttons`);
 
-            playButtons.forEach((button, index) => {
-                try {
-                    if (button.title && button.title.toLowerCase().includes('play')) {
-                        console.log(`[SlowScroll-Page] Clicking play button ${index}`);
-                        button.click();
-                    } else {
-                        console.log(`[SlowScroll-Page] Button ${index} is not a play button (title: "${button.title}")`);
-                    }
-                } catch (e) {
-                    console.error(`[SlowScroll-Page] Error clicking play button ${index}:`, e);
-                }
-            });
-        }
-
-        // Set up a longer-term miniplayer observer for YouTube to prevent 
-        // background audio from returning after 30 seconds
-        if (isYouTubeShorts) {
-            console.log('[SlowScroll-Page] Setting up long-term miniplayer observer');
-
-            // Create a MutationObserver to detect and handle miniplayers that appear later
-            const miniplayerObserver = new MutationObserver((mutations) => {
-                // Check for added nodes that might be miniplayers
-                for (const mutation of mutations) {
-                    if (mutation.addedNodes && mutation.addedNodes.length) {
-                        let shouldCheckMiniPlayers = false;
-
-                        for (const node of mutation.addedNodes) {
-                            if (node.nodeType === 1 && ( // Element node
-                                (node.classList && (
-                                    node.classList.contains('ytp-miniplayer-ui') ||
-                                    node.classList.contains('ytd-miniplayer')
-                                )) ||
-                                (node.id && node.id.includes('miniplayer')) ||
-                                (node.tagName && node.tagName.toLowerCase() === 'ytd-miniplayer')
-                            )) {
-                                console.log('[SlowScroll-Page] Mutation observer detected miniplayer element:', node);
-                                shouldCheckMiniPlayers = true;
-                                break;
-                            }
-                        }
-
-                        if (shouldCheckMiniPlayers) {
-                            console.log('[SlowScroll-Page] Mutation observer triggering miniplayer check');
-                            closeMiniPlayers();
-                        }
-                    }
-                }
-            });
-
-            // Start observing the document for miniplayer elements
-            miniplayerObserver.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-            });
-            console.log('[SlowScroll-Page] Miniplayer observer started');
-
-            // Store the observer so it persists
-            window.__slowScrollMiniplayerObserver = miniplayerObserver;
-
-            // Set a timeout to disconnect it after 5 minutes to avoid memory usage
-            setTimeout(() => {
-                if (window.__slowScrollMiniplayerObserver) {
-                    window.__slowScrollMiniplayerObserver.disconnect();
-                    window.__slowScrollMiniplayerObserver = null;
-                    console.log('[SlowScroll-Page] Disconnected miniplayer observer after timeout');
-                }
-            }, 300000); // 5 minutes
+            // playButtons.forEach((button, index) => {
+            //     try {
+            //         if (button.title && button.title.toLowerCase().includes('play')) {
+            //             console.log(`[SlowScroll-Page] Clicking play button ${index}`);
+            //             button.click();
+            //         } else {
+            //             console.log(`[SlowScroll-Page] Button ${index} is not a play button (title: "${button.title}")`);
+            //         }
+            //     } catch (e) {
+            //         console.error(`[SlowScroll-Page] Error clicking play button ${index}:`, e);
+            //     }
+            // });
         }
 
         console.log('[SlowScroll-Page] Delay handling complete');
